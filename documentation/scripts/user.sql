@@ -5,7 +5,7 @@ CREATE TABLE user (
     user_last VARCHAR(50) NOT NULL,
     user_initial CHAR(1),
     user_email VARCHAR(100) NOT NULL UNIQUE,
-    user_phone CHAR(10) NOT NULL UNIQUE,
+    user_phone CHAR(10) UNIQUE,
     user_password VARCHAR(150) NOT NULL,
     user_created DATE DEFAULT (DATE(SYSDATE())),
     user_active BOOL DEFAULT(1),
