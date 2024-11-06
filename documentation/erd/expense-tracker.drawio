@@ -972,6 +972,48 @@
         <mxCell id="2IsBwh009rrDyMOtc46o-4" value="&lt;b&gt;bud active &lt;/b&gt;is different from user active and exp active. user active and exp active are based on if they&#39;re deactivated or not (soft-deleted).&amp;nbsp;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;bud active&lt;/b&gt;&amp;nbsp;means that if today&#39;s date is between the budget start and end date, that means it will appear in the application&#39;s UI in the homepage and will be subtracted from today&#39;s expenses&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;spacingLeft=10;spacingRight=10;" vertex="1" parent="1">
           <mxGeometry x="10" y="480" width="200" height="230" as="geometry" />
         </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--15" value="" style="group" connectable="0" vertex="1" parent="1">
+          <mxGeometry x="45" y="790" width="385" height="465" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="_q9zak7pxbolP305e6u--15" source="_q9zak7pxbolP305e6u--1" target="_q9zak7pxbolP305e6u--2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--1" value="change password" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.terminator;whiteSpace=wrap;container=0;" vertex="1" parent="_q9zak7pxbolP305e6u--15">
+          <mxGeometry x="25" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="_q9zak7pxbolP305e6u--15" source="_q9zak7pxbolP305e6u--2" target="_q9zak7pxbolP305e6u--5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--2" value="&lt;div&gt;new password &amp;amp;&lt;/div&gt;&lt;div&gt;current password&lt;/div&gt;" style="shape=parallelogram;html=1;strokeWidth=2;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;container=0;" vertex="1" parent="_q9zak7pxbolP305e6u--15">
+          <mxGeometry y="90" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--4" value="inform user the error" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;container=0;" vertex="1" parent="_q9zak7pxbolP305e6u--15">
+          <mxGeometry x="235" y="110" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--7" value="no" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="_q9zak7pxbolP305e6u--15" source="_q9zak7pxbolP305e6u--5" target="_q9zak7pxbolP305e6u--4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--11" value="yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="_q9zak7pxbolP305e6u--15" source="_q9zak7pxbolP305e6u--5" target="_q9zak7pxbolP305e6u--10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--5" value="is the current password correct?" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.decision;whiteSpace=wrap;container=0;" vertex="1" parent="_q9zak7pxbolP305e6u--15">
+          <mxGeometry x="17.5" y="200" width="165" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" edge="1" parent="_q9zak7pxbolP305e6u--15" source="_q9zak7pxbolP305e6u--4" target="_q9zak7pxbolP305e6u--1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--10" value="hash the new password&lt;div&gt;and store to the database&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;container=0;" vertex="1" parent="_q9zak7pxbolP305e6u--15">
+          <mxGeometry x="25" y="410" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--12" value="refresh user page" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.terminator;whiteSpace=wrap;container=0;" vertex="1" parent="_q9zak7pxbolP305e6u--15">
+          <mxGeometry x="230" y="405" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="_q9zak7pxbolP305e6u--15" source="_q9zak7pxbolP305e6u--10" target="_q9zak7pxbolP305e6u--12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_q9zak7pxbolP305e6u--14" value="&lt;h1 style=&quot;margin-top: 0px;&quot;&gt;password change process&lt;/h1&gt;" style="text;html=1;whiteSpace=wrap;overflow=hidden;rounded=0;container=0;" vertex="1" parent="_q9zak7pxbolP305e6u--15">
+          <mxGeometry x="165" y="310" width="210" height="70" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>

@@ -7,6 +7,9 @@ const generateCustomNumber = require('../misc/generate-number');
 const logger = require('../misc/logger');
 const authorizeToken = require('../middleware/authorize-token');
 
+// note: add .replace(/\s+/g, ' ').trim(); to strings to remove a huge amount of spaces in user input (when inserting or updating certain data)
+
+// login the user
 router.post('/login', async (req, res) => {
     try {
         // initialize variables
@@ -90,6 +93,18 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// logout the user
+router.post('/logout', async(req, res) => {
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Strict',
+    });
+    
+    res.status(200).json({ message: 'logout success'} );
+});
+
+// create a user instance
 router.post('/sign-up', async (req, res) => {
     try {
         // initialize variables
@@ -185,17 +200,16 @@ router.post('/sign-up', async (req, res) => {
     }
 });
 
+// retrieve a user row 
 router.get('/:user_number', authorizeToken, async (req, res) => {
     try {
         const userInformation = req.user;
-        const userNumberParameter = req.params.user_number;
-        let selectQuery;
-        let resultQuery;
+        const parameterNumber = req.params.user_number;
 
         // if the user who's currently logged in does not match with the route parameter's information, throw an error
-        if (userNumberParameter !== userInformation.user_number) {
+        if (parameterNumber !== userInformation.user_number) {
             logger.error('user accessing the route does not match the parameter number');
-            return res.status(403).json({ message: 'you are accessing information you are not allowed to have access in' });
+            return res.status(403).json({ message: 'not allowed to access the resource' });
         }
 
         logger.debug("successfully retrieved the accessing user's information");
@@ -211,16 +225,65 @@ router.get('/:user_number', authorizeToken, async (req, res) => {
     }
 });
 
-router.post('/logout', async(req, res) => {
-    res.clearCookie('token', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'Strict',
-    });
-    
-    res.status(200).json({ message: 'logout success'} );
+// update password
+router.put('/change-password/:user_number', authorizeToken, async (req, res) => {
+    try {
+        const userNumber = req.user.user_number;
+        const parameterNumber = req.params.user_number;
+        const { new_password, current_password } = req.body;
+        let databasePassword;
+        let isPasswordValid;
+        let hashedPassword;
+        let selectQuery;
+        let updateQuery;
+        let resultQuery;
+
+        // if the user who's currently logged in does not match with the route parameter's information, throw an error
+        if (userNumber !== parameterNumber) {
+            logger.error('user accessing the route does not match the parameter number');
+            return res.status(403).json({ message: "not allowed access to the resource"})
+        }
+
+        // retrieve the user's password
+        selectQuery = "SELECT user_password FROM user WHERE user_number = ?;";
+        resultQuery = await executeReadQuery(selectQuery, [userNumber]);
+
+        if (resultQuery.length !== 1) {
+            logger.error('this should never happen; the user does not exist');
+            return res.status(404).json({ message: 'unable to find the user; this should not happen' });
+        }
+
+        // store retrieved password and verify it matches the current password provided by the user
+        databasePassword = resultQuery[0].user_password;
+        isPasswordValid = await bcrypt.compare(current_password, databasePassword);
+        logger.debug(`password validation result: ${isPasswordValid}`);
+        delete databasePassword;
+        delete current_password;
+
+        if (!isPasswordValid) {
+            logger.error('invalid password');
+            return res.status(400).json({ message: 'invalid password' });
+        }
+
+        // hash the user's password at saltround 10
+        hashedPassword = await bcrypt.hash(new_password, 10);
+        logger.debug("successfully hashed the user's password");
+
+        // update the password in the database
+        updateQuery = "UPDATE user SET user_password = ? WHERE user_number = ?;";
+        resultQuery = await executeWriteQuery(updateQuery, [hashedPassword, userNumber]);
+
+        logger.debug('successfully update user password');
+        return res.status(200).json({ message: 'password successfully updated' });
+
+    } catch (err) {
+        logger.error("an error occured while updating the user's account details");
+        logger.error(err);
+        return res.status(500).json({ message: "an error occured while updating the user's account details", error: err });
+    }
 });
 
+// verify the user is authorized while going through each secured page
 router.get('/verify-token', (req, res) => {
     const token = req.cookies['token'];
 
