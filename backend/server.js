@@ -26,6 +26,7 @@ app.use(cookieParser(process.env.COOKIE_SECRET));
 
 // setup middleware for routes
 app.use('/api/user', require('./routes/user.js'));
+app.use('/api/expense', require('./routes/expense.js'));
 
 // open the backend of the web
 app.listen(process.env.APP_PORT, () => console.log(`server listening on port ${process.env.SERVER_URL}${process.env.APP_PORT}`));
