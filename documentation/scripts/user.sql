@@ -18,6 +18,12 @@ CREATE TABLE user (
 ALTER TABLE user
 ADD user_username VARCHAR(50) NOT NULL UNIQUE;
 
+ALTER TABLE user
+ADD CONSTRAINT user_username_check CHECK (user_username NOT REGEXP '\\s');
+
+ALTER TABLE user
+ADD CONSTRAINT user_initial_check CHECK (user_initial REGEXP '^[a-z]$');
+
 -- email constraint: a user email must always be in a certain format, for example: someone@gmail.comm
 -- phone constraint: phone must always be 10 digits and all numerical
 SELECT * FROM user;

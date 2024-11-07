@@ -111,7 +111,7 @@ router.post('/sign-up', async (req, res) => {
         const token = req.cookies['token'] ? true : false;
         const userInformation = req.body;
         const userPhone = userInformation.phone ? String(userInformation.phone) : null;
-        const userInitial = userInformation.initial ? String(userInformation.initial.toLowerCase()) : null;
+        const userInitial = userInformation.initial ? String(userInformation.initial.replace(/\s+/g, ' ').toLowerCase()) : null;
         let hashedPassword;
         let userNumber;
         let insertQuery;
@@ -153,12 +153,12 @@ router.post('/sign-up', async (req, res) => {
         insertQuery += "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         resultQuery = await executeWriteQuery(insertQuery, [
             userNumber,
-            userInformation.username.toLowerCase(),
+            userInformation.username.replace(/\s+/g, ' ').trim().toLowerCase(),
             hashedPassword,
-            userInformation.first_name.toLowerCase(),
+            userInformation.first_name.replace(/\s+/g, ' ').trim().toLowerCase(),
             userInitial,
-            userInformation.last_name.toLowerCase(),
-            userInformation.email.toLowerCase(),
+            userInformation.last_name.replace(/\s+/g, ' ').trim().toLowerCase(),
+            userInformation.email.replace(/\s+/g, ' ').trim().toLowerCase(),
             userPhone
         ]);
 
@@ -181,17 +181,32 @@ router.post('/sign-up', async (req, res) => {
 
         if (err.code.includes('ER_DUP_ENTRY') && err.sqlMessage.includes('user_email')) {
             logger.error('a duplicate email was attempted to be inserted to the user entity');
-            return res.status(400).json({ message: 'email is already taken' });
+            return res.status(409).json({ message: 'email is already taken' });
         }
 
         if (err.code.includes('ER_DUP_ENTRY') && err.sqlMessage.includes('user_phone')) {
             logger.error('a duplicate phone number was attempted to be inserted to the user entity');
-            return res.status(400).json({ message: 'phone number is already taken' });
+            return res.status(409).json({ message: 'phone number is already taken' });
         }
 
         if (err.code.includes('ER_DUP_ENTRY') && err.sqlMessage.includes('user_username')) {
             logger.error('a duplicate username was attempted to be inserted to the user entity');
-            return res.status(400).json({ message: 'username is already taken' });
+            return res.status(409).json({ message: 'username is already taken' });
+        }
+
+        if (err.code === "ER_CHECK_CONSTRAINT_VIOLATED" && err.sqlMessage.includes('user_username_check')) {
+            logger.error('username must not have a white space');
+            return res.status(400).json({ message: 'username must not have a white space' });
+        }
+
+        if (err.code.includes('ER_DATA_TOO_LONG') && err.sqlMessage.includes('user_initial')) {
+            logger.error('initial must be a single alphabet only');
+            return res.status(400).json({ message: 'initial must be a single alphabet only' });
+        }
+
+        if (err.code.includes('ER_CHECK_CONSTRAINT_VIOLATED') && err.sqlMessage.includes('user_initial_check')) {
+            logger.error('initial must be a single alphabet only');
+            return res.status(400).json({ message: 'initial must be a single alphabet only' });
         }
 
         logger.error('an error occured during the sign up process in /sign-up');
@@ -203,7 +218,7 @@ router.post('/sign-up', async (req, res) => {
 // retrieve a user row 
 router.get('/:user_number', authorizeToken, async (req, res) => {
     try {
-        const userInformation = req.user;
+        const userInformation = { ...req.user }; // copy the information 
         const parameterNumber = req.params.user_number;
 
         // if the user who's currently logged in does not match with the route parameter's information, throw an error
@@ -212,9 +227,14 @@ router.get('/:user_number', authorizeToken, async (req, res) => {
             return res.status(403).json({ message: 'not allowed to access the resource' });
         }
 
+        // remove unnecessary information 
+        delete userInformation.iat;
+        delete userInformation.exp;
+
+        // success
         logger.debug("successfully retrieved the accessing user's information");
         return res.status(200).json({ 
-            message: `successfully retrieved ${userInformation.user_first}'s account information`,
+            message: `successfully retrieved 's account information`,
             user_information: userInformation
         });
 
@@ -242,6 +262,12 @@ router.put('/change-password/:user_number', authorizeToken, async (req, res) => 
         if (userNumber !== parameterNumber) {
             logger.error('user accessing the route does not match the parameter number');
             return res.status(403).json({ message: "not allowed access to the resource"})
+        }
+
+        // validate incoming body data
+        if (!new_password || !current_password) {
+            logger.error('new and current passwords are missing');
+            return res.status(400).json({ message: 'new and current passwords are missing' });
         }
 
         // retrieve the user's password
@@ -277,9 +303,256 @@ router.put('/change-password/:user_number', authorizeToken, async (req, res) => 
         return res.status(200).json({ message: 'password successfully updated' });
 
     } catch (err) {
-        logger.error("an error occured while updating the user's account details");
+        logger.error("an error occured while updating the user's password");
         logger.error(err);
-        return res.status(500).json({ message: "an error occured while updating the user's account details", error: err });
+        return res.status(500).json({ message: "an error occured while updating the user's password", error: err });
+    }
+});
+
+// update username
+router.put('/change-username/:user_number', authorizeToken, async (req, res) => {
+    try {
+        const userInformationFromToken = req.user;
+        const parameterNumber = req.params.user_number;
+        const { new_username, current_password } = req.body;
+        const username = new_username.replace(/\s+/g, ' ').trim().toLowerCase(); // filtering username 
+        let userInformation
+        let isPasswordValid;
+        let selectQuery;
+        let updateQuery;
+        let resultQuery;
+        let token;
+
+        // if the user who's currently logged in does not match with the route parameter's information, throw an error
+        if (userInformationFromToken.user_number !== parameterNumber) {
+            logger.error('user accessing the route does not match the parameter number');
+            return res.status(403).json({ message: "not allowed access to the resource"})
+        }
+
+        // validate incoming body data
+        if (!new_username || !current_password) {
+            logger.error('new username and current password are missing');
+            return res.status(400).json({ message: 'new username and current password are missing' });
+        }
+
+        // retrieve the user's password
+        selectQuery = "SELECT user_number, user_first, user_last, user_initial, user_email, user_phone, user_username, user_password FROM user WHERE user_number = ?;";
+        resultQuery = await executeReadQuery(selectQuery, [userInformationFromToken.user_number]);
+
+        if (resultQuery.length !== 1) {
+            logger.error('this should never happen; the user does not exist');
+            return res.status(404).json({ message: 'unable to find the user; this should not happen' });
+        }
+
+        // store retrieved password and verify it matches the current password provided by the user
+        userInformation = resultQuery[0]
+        isPasswordValid = await bcrypt.compare(current_password, userInformation.user_password);
+        logger.debug(`password validation result: ${isPasswordValid}`);
+        delete userInformation.user_password;
+        delete current_password;
+
+        if (!isPasswordValid) {
+            logger.error('invalid password');
+            return res.status(400).json({ message: 'invalid password' });
+        }
+
+        // update the username in the database
+        updateQuery = "UPDATE user SET user_username = ? WHERE user_number = ?;";
+        resultQuery = await executeWriteQuery(updateQuery, [username, userInformationFromToken.user_number]);
+
+        // change username for the middleware as well
+        userInformation.user_username = username;
+
+        // reinstate the token
+        token = jwt.sign(userInformation, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+        // set an http-only cookie using the provided token
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'Strict',
+            maxAge: 3600000 // 1 hour in milliseconds
+        });
+
+        logger.debug('successfully updated username');
+        return res.status(200).json({ message: 'username successfully updated', new_username:  username });
+
+    } catch (err) {
+        logger.error("an error occured while updating the user's username");
+
+        // if username has a space between, throw an error
+        if (err.code === "ER_CHECK_CONSTRAINT_VIOLATED" && err.sqlMessage.includes('user_username_check')) {
+            logger.error('username must not have a white space');
+            return res.status(400).json({ message: 'username must not have a white space' });
+        }
+
+        logger.error(err);
+        return res.status(500).json({ message: "an error occured while updating the user's username", error: err });
+    }
+});
+
+// update user information
+router.put('/change-information/:user_number', authorizeToken, async (req, res) => {
+    try {
+        const userInformationFromToken = req.user;
+        const parameterNumber = req.params.user_number;
+        const newUserInformation = req.body;
+        let userInformationFromDatabase;
+        let updateQuery;
+        let selectQuery;
+        let resultQuery;
+        let token;
+
+        // if the accessing user's number does not match the parameter number, throw a forbidden error
+        if (parameterNumber !== userInformationFromToken.user_number) {
+            logger.error('user is forbidden to access this resource');
+            return res.status(403).json({ message: 'user is forbidden to access this resource' });
+        }
+
+        // validate body data
+        if (!newUserInformation.first || !newUserInformation.last || !newUserInformation.initial || !newUserInformation.email || !newUserInformation.phone) {
+            logger.error('missing required information for updating user information');
+            return res.status(400).json({ message: 'missing required information for updating user information' });
+        }
+
+        // update data to the database
+        updateQuery = "UPDATE user SET user_first = ?, user_last = ?, user_initial = ?, user_email = ?, user_phone = ? WHERE user_number = ?;";
+        resultQuery = await executeWriteQuery(updateQuery, [
+            newUserInformation.first.replace(/\s+/g, ' ').trim().toLowerCase(),
+            newUserInformation.last.replace(/\s+/g, ' ').trim().toLowerCase(),
+            newUserInformation.initial.replace(/\s+/g, ' ').trim().toLowerCase(),
+            newUserInformation.email.replace(/\s+/g, ' ').trim().toLowerCase(),
+            newUserInformation.phone,
+            userInformationFromToken.user_number
+        ]);
+
+        logger.debug('successfully updated user information');
+        
+        // find this information to store and create a new token
+        selectQuery = "SELECT user_number, user_first, user_last, user_initial, user_email, user_phone, user_username FROM user WHERE user_number = ?;"
+        resultQuery = await executeReadQuery(selectQuery, [userInformationFromToken.user_number]);
+        userInformationFromDatabase = resultQuery[0];
+
+        // reinstate the token
+        token = jwt.sign(userInformationFromDatabase, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+        // set an http-only cookie using the provided token
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'Strict',
+            maxAge: 3600000 // 1 hour in milliseconds
+        });
+
+        logger.debug('successfully updated token');
+        return res.status(200).json({ 
+            message: 'user information successfully updated', 
+            user_information: {
+                    username: userInformationFromDatabase.user_username,
+                    number: userInformationFromDatabase.user_number,
+                    first_name: userInformationFromDatabase.user_first
+                } 
+        });
+
+    } catch (err) {
+        if (err.sqlMessage.includes('user_email_check')) {
+            logger.error('invalid email format');
+            return res.status(400).json({ message: 'invalid email format' });
+        }
+
+        if (err.sqlMessage.includes('user_phone_check')) {
+            logger.error('invalid phone number format');
+            return res.status(400).json({ message: 'invalid phone number format' });
+        }
+
+        if (err.code.includes('ER_DUP_ENTRY') && err.sqlMessage.includes('user_email')) {
+            logger.error('a duplicate email was attempted to be inserted to the user entity');
+            return res.status(409).json({ message: 'email is already taken' });
+        }
+
+        if (err.code.includes('ER_DUP_ENTRY') && err.sqlMessage.includes('user_phone')) {
+            logger.error('a duplicate phone number was attempted to be inserted to the user entity');
+            return res.status(409).json({ message: 'phone number is already taken' });
+        }
+
+        if (err.code.includes('ER_DATA_TOO_LONG') && err.sqlMessage.includes('user_initial')) {
+            logger.error('initial must be a single alphabet only');
+            return res.status(400).json({ message: 'initial must be a single alphabet only' });
+        }
+
+        if (err.code.includes('ER_CHECK_CONSTRAINT_VIOLATED') && err.sqlMessage.includes('user_initial_check')) {
+            logger.error('initial must be a single alphabet only');
+            return res.status(400).json({ message: 'initial must be a single alphabet only' });
+        }
+
+        logger.error('an error occured while updating user information');
+        logger.error(err);
+        return res.status(500).json({ message: 'an error occured while updating user information' });
+    } 
+});
+
+// disable user account
+router.put('/disable-user/:user_number', authorizeToken, async (req, res) => {
+    try {
+        const parameterNumber = req.params.user_number;
+        const userInformationFromToken = req.user;
+        const { current_password } = req.body;
+        let databasePassword;
+        let updateQuery;
+        let selectQuery;
+        let resultQuery;
+        let isPasswordValid;
+
+        // if the accessing user's number does not match the parameter number, throw a forbidden error
+        if (parameterNumber !== userInformationFromToken.user_number) {
+            logger.error('user is forbidden to access this resource');
+            return res.status(403).json({ message: 'user is forbidden to access this resource' });
+        }
+
+        // validate password
+        if (!current_password) {
+            logger.error('password is missing');
+            return res.status(400).json({ message: 'password is missing' });
+        }
+
+        // compare password, then throw an error if password do not match
+        selectQuery = "SELECT user_password FROM user WHERE user_number = ?;";
+        resultQuery = await executeReadQuery(selectQuery, [userInformationFromToken.user_number]);
+
+        if (resultQuery.length !== 1) {
+            logger.error('unable to find user instance');
+            return res.status(404).json({ message: 'unable to find instance of this user, contact the administrator immediately' });
+        }
+
+        databasePassword = resultQuery[0].user_password;
+        isPasswordValid = await bcrypt.compare(current_password, databasePassword);
+        logger.debug(`password validation result: ${isPasswordValid}`);
+        delete databasePassword;
+        delete current_password;
+
+        if (!isPasswordValid) {
+            logger.error('invalid password');
+            return res.status(400).json({ message: 'invalid password' });
+        }
+
+        // update user_active in the database
+        updateQuery = "UPDATE user SET user_active = ? WHERE user_number = ?;";
+        resultQuery = await executeWriteQuery(updateQuery, [0, userInformationFromToken.user_number]);
+        logger.debug('successfully disable the user account');
+
+        // clear cookies to logout
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'Strict',
+        });
+        
+        return res.status(200).json({ message: 'successfully cleared token and disabled the user account'} );
+
+    } catch (err) {
+        logger.error('an error occured while disabling the account');
+        logger.error(err);
+        return res.status(500).json({ message: 'an error occured while disabling the account' });
     }
 });
 
