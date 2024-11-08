@@ -36,7 +36,7 @@ router.post('/login', async (req, res) => {
 
         /* this section verifies the user's identity */
         // retrieve the user's information from the database
-        selectQuery = 'SELECT user_number, user_username, user_password, user_first, user_initial, user_last, user_email, user_phone, user_password, user_active FROM user WHERE user_username = ?;';
+        selectQuery = 'SELECT u.*, page_mode, curr_code FROM user u JOIN setting s ON u.user_id = s.user_id WHERE user_username = ?;';
         resultQuery = await executeReadQuery(selectQuery, [username]);
 
         // throw an error if no user is found
@@ -57,11 +57,15 @@ router.post('/login', async (req, res) => {
         logger.debug(`password validation result: ${isPasswordValid}`, );
         delete userInformation.user_password;
         delete userInformation.user_active;
+        delete userInformation.user_id;
 
         if (!isPasswordValid) {
             logger.error('invalid password');
             return res.status(400).json({ message: 'invalid password' });
         }
+
+        // store in the token on the date, not including the time
+        userInformation.user_created = userInformation.user_created.toISOString().split('T')[0];
 
         // create a token
         token = jwt.sign(userInformation, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -82,7 +86,9 @@ router.post('/login', async (req, res) => {
                 {
                     username: userInformation.user_username,
                     number: userInformation.user_number,
-                    first_name: userInformation.user_first
+                    first_name: userInformation.user_first,
+                    page_mode: userInformation.page_mode,
+                    currency: userInformation.curr_code
                 }
         });
     
@@ -228,13 +234,14 @@ router.get('/:user_number', authorizeToken, async (req, res) => {
         }
 
         // remove unnecessary information 
+        delete userInformation.user_id
         delete userInformation.iat;
         delete userInformation.exp;
 
         // success
         logger.debug("successfully retrieved the accessing user's information");
         return res.status(200).json({ 
-            message: `successfully retrieved 's account information`,
+            message: `successfully retrieved's account information`,
             user_information: userInformation
         });
 
@@ -336,7 +343,7 @@ router.put('/change-username/:user_number', authorizeToken, async (req, res) => 
         }
 
         // retrieve the user's password
-        selectQuery = "SELECT user_number, user_first, user_last, user_initial, user_email, user_phone, user_username, user_password FROM user WHERE user_number = ?;";
+        selectQuery = "SELECT user_password FROM user WHERE user_number = ?;";
         resultQuery = await executeReadQuery(selectQuery, [userInformationFromToken.user_number]);
 
         if (resultQuery.length !== 1) {
@@ -361,10 +368,10 @@ router.put('/change-username/:user_number', authorizeToken, async (req, res) => 
         resultQuery = await executeWriteQuery(updateQuery, [username, userInformationFromToken.user_number]);
 
         // change username for the middleware as well
-        userInformation.user_username = username;
+        userInformationFromToken.user_username = username;
 
         // reinstate the token
-        token = jwt.sign(userInformation, process.env.JWT_SECRET, { expiresIn: '1h' });
+        token = jwt.sign(userInformationFromToken, process.env.JWT_SECRET);
 
         // set an http-only cookie using the provided token
         res.cookie('token', token, {
@@ -397,9 +404,7 @@ router.put('/change-information/:user_number', authorizeToken, async (req, res) 
         const userInformationFromToken = req.user;
         const parameterNumber = req.params.user_number;
         const newUserInformation = req.body;
-        let userInformationFromDatabase;
         let updateQuery;
-        let selectQuery;
         let resultQuery;
         let token;
 
@@ -428,13 +433,15 @@ router.put('/change-information/:user_number', authorizeToken, async (req, res) 
 
         logger.debug('successfully updated user information');
         
-        // find this information to store and create a new token
-        selectQuery = "SELECT user_number, user_first, user_last, user_initial, user_email, user_phone, user_username FROM user WHERE user_number = ?;"
-        resultQuery = await executeReadQuery(selectQuery, [userInformationFromToken.user_number]);
-        userInformationFromDatabase = resultQuery[0];
-
+        // modify the token
+        userInformationFromToken.user_first = newUserInformation.first.replace(/\s+/g, ' ').trim().toLowerCase();
+        userInformationFromToken.user_last = newUserInformation.last.replace(/\s+/g, ' ').trim().toLowerCase();
+        userInformationFromToken.user_initial = newUserInformation.initial.replace(/\s+/g, ' ').trim().toLowerCase(),
+        userInformationFromToken.user_email = newUserInformation.email.replace(/\s+/g, ' ').trim().toLowerCase(),
+        userInformationFromToken.user_phone = newUserInformation.phone;
+        
         // reinstate the token
-        token = jwt.sign(userInformationFromDatabase, process.env.JWT_SECRET, { expiresIn: '1h' });
+        token = jwt.sign(userInformationFromToken, process.env.JWT_SECRET);
 
         // set an http-only cookie using the provided token
         res.cookie('token', token, {
@@ -448,9 +455,7 @@ router.put('/change-information/:user_number', authorizeToken, async (req, res) 
         return res.status(200).json({ 
             message: 'user information successfully updated', 
             user_information: {
-                    username: userInformationFromDatabase.user_username,
-                    number: userInformationFromDatabase.user_number,
-                    first_name: userInformationFromDatabase.user_first
+                    first_name: userInformationFromToken.user_first
                 } 
         });
 

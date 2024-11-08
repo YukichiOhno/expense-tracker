@@ -8,6 +8,7 @@ const authorizeToken = require('../middleware/authorize-token');
 router.post('/', authorizeToken, async (req, res) => {
     try {
         const userNumber = req.user.user_number;
+        const userCurrencyCode = req.user.curr_code;
         const expenseInformation = req.body;
         const expenseDescription = expenseInformation.description ? expenseInformation.description.replace(/\s+/g, ' ').trim().toLowerCase() : null;
         let userID;
@@ -15,6 +16,8 @@ router.post('/', authorizeToken, async (req, res) => {
         let selectQuery;
         let resultQuery;
         let insertQuery;
+        let dollarToCurrency;
+        let expenseInUSD;
 
         // validate data
         if (!expenseInformation.amount || !expenseInformation.date || !expenseInformation.category) {
@@ -28,11 +31,22 @@ router.post('/', authorizeToken, async (req, res) => {
         expenseCount = Number(resultQuery[0].expense_count) + 1;
         userID = Number(resultQuery[0].user_id);
 
+        // convert to USD before inserting the amount to the database
+        selectQuery = "SELECT dollar_to_curr FROM currency WHERE curr_code = ?;";
+        resultQuery = await executeReadQuery(selectQuery, [userCurrencyCode]);
+        if (resultQuery.length !== 1) {
+            logger.error('invalid currency');
+            return res.status(400).json({ message: 'invalid currency' });
+        }
+        dollarToCurrency = resultQuery[0].dollar_to_curr;
+        expenseInUSD = Number(expenseInformation.amount) / Number(dollarToCurrency);
+
+        // insert the data into the database
         insertQuery = "INSERT INTO expense (user_id, exp_seq, exp_amt, exp_desc, exp_date, exp_cat) VALUES (?, ?, ?, ?, ?, ?);";
         resultQuery = await executeWriteQuery(insertQuery, [
             userID,
             expenseCount,
-            Number(expenseInformation.amount),
+            expenseInUSD,
             expenseDescription,
             expenseInformation.date.replace(/\s+/g, ' ').trim(),
             expenseInformation.category.replace(/\s+/g, ' ').trim().toLowerCase()
@@ -59,9 +73,12 @@ router.post('/', authorizeToken, async (req, res) => {
 router.get('/summary/:user_number', authorizeToken, async (req, res) => {
     try {
         const userInformationFromToken = req.user;
+        const userCurrencyCode = userInformationFromToken.curr_code;
         const parameterNumber = req.params.user_number;
         let selectQuery;
         let resultQuery;
+        let conversionRate;
+        let currencySign;
         let totalExpenseAmt;
         let totalExpenseCount;
         let totalExpenseByCategory;
@@ -73,43 +90,62 @@ router.get('/summary/:user_number', authorizeToken, async (req, res) => {
             return res.status(403).json({ message: 'user accessing this information does not match the person logged in' });
         }
 
+        // retrieve the conversion rate 
+        selectQuery = "SELECT dollar_to_curr, curr_sign FROM currency WHERE curr_code = ?;";
+        resultQuery = await executeReadQuery(selectQuery, [userCurrencyCode]);
+        if (resultQuery.length !== 1) {
+            logger.error('invalid currency');
+            return res.status(400).json({ message: 'invalid currency' });
+        }
+        conversionRate = Number(resultQuery[0].dollar_to_curr);
+        currencySign = resultQuery[0].curr_sign;
+
         // retrieve active total amount of expenses for a user 
         selectQuery = "SELECT SUM(exp_amt) as total_expense FROM user u JOIN expense e ON u.user_id = e.user_id WHERE user_number = ? AND exp_active = ? GROUP BY user_number;";
-        resultQuery  = await executeReadQuery(selectQuery, [userInformationFromToken.user_number, 1]);
-        totalExpenseAmt = Number(resultQuery[0].total_expense) || null;
+        resultQuery = await executeReadQuery(selectQuery, [userInformationFromToken.user_number, 1]);
+        totalExpenseAmt = resultQuery[0] ? Number((Number(resultQuery[0].total_expense) * conversionRate).toFixed(2)) : null;
 
         // retrieve active count of expenses for user
         selectQuery = "SELECT COUNT(*) as expense_count FROM user u JOIN expense e ON u.user_id = e.user_id WHERE user_number = ? AND exp_active = ? GROUP BY user_number;";
-        resultQuery  = await executeReadQuery(selectQuery, [userInformationFromToken.user_number, 1]);
-        totalExpenseCount = Number(resultQuery[0].expense_count) || null;
+        resultQuery = await executeReadQuery(selectQuery, [userInformationFromToken.user_number, 1]);
+        totalExpenseCount = resultQuery[0] ? Number(resultQuery[0].expense_count) : null;
 
         // retrieve active total amount of expenses for a user by category 
         selectQuery = "SELECT exp_cat as category, SUM(exp_amt) as total_expense FROM user u JOIN expense e ON u.user_id = e.user_id WHERE user_number = ? AND exp_active = ? GROUP BY exp_cat;"
-        resultQuery  = await executeReadQuery(selectQuery, [userInformationFromToken.user_number, 1]);
-        totalExpenseByCategory = resultQuery.map(expense => {
-            return {
-                category: expense.category,
-                total_expense: Number(expense.total_expense)
-            }
-        });
-
+        resultQuery = await executeReadQuery(selectQuery, [userInformationFromToken.user_number, 1]);
+        if (resultQuery.length >= 1) {
+            totalExpenseByCategory = resultQuery.map(expense => {
+                return {
+                    category: expense.category,
+                    total_expense: Number((Number(expense.total_expense) * conversionRate).toFixed(2))
+                }
+            });
+        } else {
+            totalExpenseByCategory = null;
+        }
+        
         // retrieve active total amount of expenses for a user by date
         selectQuery = "SELECT DATE_FORMAT(exp_date, '%Y-%m-%d') as date, SUM(exp_amt) as total_expense FROM user u JOIN expense e ON u.user_id = e.user_id WHERE user_number = ? AND exp_active = ? GROUP BY exp_date;";
         resultQuery  = await executeReadQuery(selectQuery, [userInformationFromToken.user_number, 1]);
-        totalExpenseByDate = resultQuery.map(expense => {
-            return {
-                date: expense.date,
-                total_expense: Number(expense.total_expense)
-            }
-        });
-
+        if (resultQuery.length >= 1) {
+            totalExpenseByDate = resultQuery.map(expense => {
+                return {
+                    date: expense.date,
+                    total_expense: Number((Number(expense.total_expense) * conversionRate).toFixed(2))
+                }
+            });
+        } else {
+            totalExpenseByDate = null;
+        }
+        
         logger.debug('sucessfully retrieved expense information');
         return res.status(200).json({ 
             message: 'sucessfully retrieved expense information',
             total_expense_amount: totalExpenseAmt,
             total_expense_count: totalExpenseCount,
             expense_by_category: totalExpenseByCategory,
-            expense_by_date: totalExpenseByDate
+            expense_by_date: totalExpenseByDate,
+            currency_sign: currencySign
         });
 
     } catch (err) {
@@ -123,7 +159,10 @@ router.get('/summary/:user_number', authorizeToken, async (req, res) => {
 router.get('/:user_number', authorizeToken, async (req, res) => {
     try {
         const userInformationFromToken = req.user;
+        const userCurrencyCode = userInformationFromToken.curr_code;
         const parameterNumber = req.params.user_number;
+        let conversionRate;
+        let currencySign;
         let selectQuery;
         let resultQuery;
         let userExpenses;
@@ -134,22 +173,36 @@ router.get('/:user_number', authorizeToken, async (req, res) => {
             return res.status(403).json({ message: 'user accessing this information does not match the person logged in' });
         }
 
+        // retrieve the conversion rate 
+        selectQuery = "SELECT dollar_to_curr, curr_sign FROM currency WHERE curr_code = ?;";
+        resultQuery = await executeReadQuery(selectQuery, [userCurrencyCode]);
+        if (resultQuery.length !== 1) {
+            logger.error('invalid currency');
+            return res.status(400).json({ message: 'invalid currency' });
+        }
+        conversionRate = Number(resultQuery[0].dollar_to_curr);
+        currencySign = resultQuery[0].curr_sign;
+
         // retrieve all expenses for a user
         selectQuery = "SELECT exp_seq, exp_amt, exp_desc, DATE_FORMAT(exp_date, '%Y-%m-%d') as exp_date, exp_cat, exp_active FROM user u JOIN expense e ON u.user_id = e.user_id WHERE user_number = ?;";
         resultQuery = await executeReadQuery(selectQuery, userInformationFromToken.user_number);
         userExpenses = resultQuery.map(expense => {
             return {
                 expense_number: Number(expense.exp_seq),
-                amount: Number(expense.exp_amt),
+                amount: Number((Number(expense.exp_amt) * conversionRate).toFixed(2)),
                 description: String(expense.exp_desc),
                 date: String(expense.exp_date),
                 category: String(expense.exp_cat),
-                active: Number(expense.exp_active)
+                active: Number(expense.exp_active),
             }
         });
 
         logger.debug('successfully retrieved all expenses for the user');
-        return res.status(200).json({ message: 'successfully retrieved all expenses for the user', expenses: userExpenses });
+        return res.status(200).json({ 
+            message: 'successfully retrieved all expenses for the user', 
+            expenses: userExpenses, 
+            currency_sign: currencySign 
+        });
 
     } catch (err) {
         logger.error('an error occurred while retrieving expense information');
@@ -164,11 +217,14 @@ router.put('/:user_number/:expense_number', authorizeToken, async (req, res) => 
         const parameterNumber = req.params.user_number;
         const expenseNumber = req.params.expense_number;
         const userNumberFromToken = req.user.user_number;
+        const userCurrencyCode = req.user.curr_code;
         const newExpenseInformation = req.body;
         let userID;
         let selectQuery;
         let updateQuery;
         let resultQuery;
+        let dollarToCurrency;
+        let expenseInUSD;
 
         // throw an error if user_number from the token does not match the user_number from parameter
         if (userNumberFromToken !== parameterNumber) {
@@ -198,10 +254,20 @@ router.put('/:user_number/:expense_number', authorizeToken, async (req, res) => 
         }
         userID = resultQuery[0].user_id;
 
+        // convert to USD before inserting the amount to the database
+        selectQuery = "SELECT dollar_to_curr FROM currency WHERE curr_code = ?;";
+        resultQuery = await executeReadQuery(selectQuery, [userCurrencyCode]);
+        if (resultQuery.length !== 1) {
+            logger.error('invalid currency');
+            return res.status(400).json({ message: 'invalid currency' });
+        }
+        dollarToCurrency = resultQuery[0].dollar_to_curr;
+        expenseInUSD = Number(newExpenseInformation.amount) / Number(dollarToCurrency);
+
         // update the expense entity
         updateQuery = "UPDATE expense SET exp_amt = ?, exp_desc = ?, exp_date = ?, exp_cat = ?, exp_active = ? WHERE user_id = ? AND exp_seq = ?;";
         resultQuery = await executeWriteQuery(updateQuery, [
-                Number(newExpenseInformation.amount),
+                expenseInUSD,
                 newExpenseInformation.description.replace(/\s+/g, ' ').trim().toLowerCase(),
                 newExpenseInformation.date.replace(/\s+/g, ' ').trim(),
                 newExpenseInformation.category.replace(/\s+/g, ' ').trim().toLowerCase(),
