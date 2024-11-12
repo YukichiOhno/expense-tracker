@@ -65,7 +65,7 @@ router.post('/', authorizeToken, async (req, res) => {
         }
 
         logger.error(err);
-        return res.status(500).json({ message: 'an error occured while adding an expense for the user', error: err });
+        return res.status(500).json({ message: 'an error occured while adding an expense for the user' });
     }
 });
 
@@ -151,7 +151,7 @@ router.get('/summary/:user_number', authorizeToken, async (req, res) => {
     } catch (err) {
         logger.error('an error occurred while retrieving expense summary information');
         logger.error(err);
-        return res.status(500).json({ message: 'an error occurred while retrieving expense summary information', error: err });
+        return res.status(500).json({ message: 'an error occurred while retrieving expense summary information' });
     }
 });
 
@@ -211,7 +211,7 @@ router.get('/:user_number', authorizeToken, async (req, res) => {
     } catch (err) {
         logger.error('an error occurred while retrieving expense information');
         logger.error(err);
-        return res.status(500).json({ message: 'an error occurred while retrieving expense information', error: err });
+        return res.status(500).json({ message: 'an error occurred while retrieving expense information' });
     }
 });
 
@@ -292,7 +292,7 @@ router.put('/:user_number/:expense_number', authorizeToken, async (req, res) => 
         }
 
         logger.error(err);
-        return res.status(500).json({ message: 'an error occured while updating an expense of the user', error: err });
+        return res.status(500).json({ message: 'an error occured while updating an expense of the user' });
     }
 });
 

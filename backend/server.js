@@ -28,6 +28,8 @@ app.use(cookieParser(process.env.COOKIE_SECRET));
 app.use('/api/user', require('./routes/user.js'));
 app.use('/api/expense', require('./routes/expense.js'));
 app.use('/api/budget', require('./routes/budget.js'));
+app.use('/api/setting', require('./routes/setting.js'));
+app.use('/api/currency', require('./routes/currency.js'));
 
 // open the backend of the web
 app.listen(process.env.APP_PORT, () => console.log(`server listening on port ${process.env.SERVER_URL}${process.env.APP_PORT}`));

@@ -100,7 +100,7 @@ router.post('/login', async (req, res) => {
     } catch (err) {
         logger.error('an error occured while logging in');
         logger.error(err);
-        return res.status(500).json({ message: 'a server error occured while logging in', error: err });
+        return res.status(500).json({ message: 'a server error occured while logging in' });
     }
 });
 
@@ -222,7 +222,7 @@ router.post('/sign-up', async (req, res) => {
 
         logger.error('an error occured during the sign up process in /sign-up');
         logger.error(err);
-        return res.status(500).json({ message: 'a server error occured while signing up, please try again', error: err });
+        return res.status(500).json({ message: 'a server error occured while signing up, please try again' });
     }
 });
 
@@ -253,7 +253,7 @@ router.get('/:user_number', authorizeToken, async (req, res) => {
     } catch (err) {
         logger.error('an error occured while retrieving a user row instance');
         logger.error(err);
-        return res.status(500).json({ message: 'an error occured while retrieving using information', error: err });
+        return res.status(500).json({ message: 'an error occured while retrieving using information' });
     }
 });
 
@@ -317,7 +317,7 @@ router.put('/change-password/:user_number', authorizeToken, async (req, res) => 
     } catch (err) {
         logger.error("an error occured while updating the user's password");
         logger.error(err);
-        return res.status(500).json({ message: "an error occured while updating the user's password", error: err });
+        return res.status(500).json({ message: "an error occured while updating the user's password" });
     }
 });
 
@@ -399,7 +399,7 @@ router.put('/change-username/:user_number', authorizeToken, async (req, res) => 
         }
 
         logger.error(err);
-        return res.status(500).json({ message: "an error occured while updating the user's username", error: err });
+        return res.status(500).json({ message: "an error occured while updating the user's username" });
     }
 });
 
