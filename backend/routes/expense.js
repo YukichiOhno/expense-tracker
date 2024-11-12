@@ -65,7 +65,7 @@ router.post('/', authorizeToken, async (req, res) => {
         }
 
         logger.error(err);
-        return res.status(500).json({ message: 'an error occured while adding an expense for the user' });
+        return res.status(500).json({ message: 'an error occured while adding an expense for the user', error: err });
     }
 });
 
@@ -151,7 +151,7 @@ router.get('/summary/:user_number', authorizeToken, async (req, res) => {
     } catch (err) {
         logger.error('an error occurred while retrieving expense summary information');
         logger.error(err);
-        return res.status(500).json({ message: 'an error occurred while retrieving expense summary information' });
+        return res.status(500).json({ message: 'an error occurred while retrieving expense summary information', error: err });
     }
 });
 
@@ -186,17 +186,21 @@ router.get('/:user_number', authorizeToken, async (req, res) => {
         // retrieve all expenses for a user
         selectQuery = "SELECT exp_seq, exp_amt, exp_desc, DATE_FORMAT(exp_date, '%Y-%m-%d') as exp_date, exp_cat, exp_active FROM user u JOIN expense e ON u.user_id = e.user_id WHERE user_number = ?;";
         resultQuery = await executeReadQuery(selectQuery, userInformationFromToken.user_number);
-        userExpenses = resultQuery.map(expense => {
-            return {
-                expense_number: Number(expense.exp_seq),
-                amount: Number((Number(expense.exp_amt) * conversionRate).toFixed(2)),
-                description: String(expense.exp_desc),
-                date: String(expense.exp_date),
-                category: String(expense.exp_cat),
-                active: Number(expense.exp_active),
-            }
-        });
-
+        if (resultQuery.length >= 1) {
+            userExpenses = resultQuery.map(expense => {
+                return {
+                    expense_number: Number(expense.exp_seq),
+                    amount: Number((Number(expense.exp_amt) * conversionRate).toFixed(2)),
+                    description: String(expense.exp_desc),
+                    date: String(expense.exp_date),
+                    category: String(expense.exp_cat),
+                    active: Number(expense.exp_active),
+                }
+            });
+        } else {
+            userExpenses = null;
+        }
+        
         logger.debug('successfully retrieved all expenses for the user');
         return res.status(200).json({ 
             message: 'successfully retrieved all expenses for the user', 
@@ -207,7 +211,7 @@ router.get('/:user_number', authorizeToken, async (req, res) => {
     } catch (err) {
         logger.error('an error occurred while retrieving expense information');
         logger.error(err);
-        return res.status(500).json({ message: 'an error occurred while retrieving expense information' });
+        return res.status(500).json({ message: 'an error occurred while retrieving expense information', error: err });
     }
 });
 
@@ -288,7 +292,7 @@ router.put('/:user_number/:expense_number', authorizeToken, async (req, res) => 
         }
 
         logger.error(err);
-        return res.status(500).json({ message: 'an error occured while updating an expense of the user' });
+        return res.status(500).json({ message: 'an error occured while updating an expense of the user', error: err });
     }
 });
 

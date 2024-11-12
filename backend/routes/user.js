@@ -36,7 +36,11 @@ router.post('/login', async (req, res) => {
 
         /* this section verifies the user's identity */
         // retrieve the user's information from the database
-        selectQuery = 'SELECT u.*, page_mode, curr_code FROM user u JOIN setting s ON u.user_id = s.user_id WHERE user_username = ?;';
+        selectQuery = `SELECT u.*, page_mode, s.curr_code, curr_sign 
+                        FROM user u 
+                        JOIN setting s ON u.user_id = s.user_id
+                        JOIN currency c ON s.curr_code = c.curr_code
+                        WHERE user_username = ?;`;
         resultQuery = await executeReadQuery(selectQuery, [username]);
 
         // throw an error if no user is found
@@ -88,7 +92,8 @@ router.post('/login', async (req, res) => {
                     number: userInformation.user_number,
                     first_name: userInformation.user_first,
                     page_mode: userInformation.page_mode,
-                    currency: userInformation.curr_code
+                    currency: userInformation.curr_code,
+                    currency_sign: userInformation.curr_sign
                 }
         });
     
