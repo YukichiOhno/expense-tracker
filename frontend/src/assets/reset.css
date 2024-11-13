@@ -1,0 +1,32 @@
+html, html * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+    font-family: "Courier New"
+}
+
+h1 {font-size: 2rem;}
+h2 {font-size: 1.5rem;}
+h3 {font-size: 1.25rem;}
+h4 {font-size: 1rem;}
+h5 {font-size: 0.875rem;}
+h6 {font-size: 0.75rem;}
+
+body > * {
+    border: 1px solid black;
+    border-radius: 5px;
+}
+
+table {
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+li {
+    list-style: none;
+}
+
+img, picture, video {
+    max-inline-size: 100%;
+}
