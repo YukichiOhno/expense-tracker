@@ -215,6 +215,72 @@ router.get('/:user_number', authorizeToken, async (req, res) => {
     }
 });
 
+// retrieve an instance of a user expense
+router.get('/:user_number/:expense_number', authorizeToken, async (req, res) => {
+    try {
+        const userInformationFromToken = req.user;
+        const userNumber = userInformationFromToken.user_number;
+        const userCurrencyCode = userInformationFromToken.curr_code;
+        const parameterNumber = req.params.user_number;
+        const expenseNumber = req.params.expense_number;
+        let conversionRate;
+        let currencySign;
+        let selectQuery;
+        let resultQuery;
+        let expenseInstance
+
+        // throw an error if user_number from the token does not match the user_number from parameter
+        if (userNumber !== parameterNumber) {
+            logger.error('user accessing this information does not match the person logged in');
+            return res.status(403).json({ message: 'user accessing this information does not match the person logged in' });
+        }
+
+        // retrieve the conversion rate 
+        selectQuery = "SELECT dollar_to_curr, curr_sign FROM currency WHERE curr_code = ?;";
+        resultQuery = await executeReadQuery(selectQuery, [userCurrencyCode]);
+        if (resultQuery.length !== 1) {
+            logger.error('invalid currency');
+            return res.status(400).json({ message: 'invalid currency' });
+        }
+        conversionRate = Number(resultQuery[0].dollar_to_curr);
+        currencySign = resultQuery[0].curr_sign;
+
+        // retrieve the expense row instance
+        selectQuery = `SELECT exp_seq, exp_amt, exp_desc, DATE_FORMAT(exp_date, '%Y-%m-%d') as exp_date, exp_cat, exp_active 
+                        FROM user us
+                        JOIN expense ex
+                            ON us.user_id = ex.user_id 
+                        WHERE user_number = ?
+                            AND exp_seq = ?;`
+        resultQuery = await executeReadQuery(selectQuery, [userNumber, expenseNumber]);
+        if (resultQuery.length !== 1) {
+            logger.error('this expense does not exist for the user');
+            return res.status(404).json({ message: 'the expense does not exist for the user'});
+        } else {
+            expenseInstance = resultQuery.map(expense => {
+                return {
+                    expense_amount: Number((Number(expense.exp_amt) * conversionRate).toFixed(2)),
+                    expense_description: expense.exp_desc,
+                    expense_date: expense.exp_date,
+                    expense_category: expense.exp_cat,
+                    expense_active: Number(expense.exp_active)
+                }
+            });
+        }
+
+        logger.debug('successfully retrieved an expense instance for the user');
+        return res.status(200).json({
+            message: 'successfully retrieved an expense instance for the user',
+            expense_instance: expenseInstance
+        });
+
+    } catch (err) {
+        logger.error('an error occured while retrieving an instance of user expense');
+        logger.error(err);
+        return res.status(500).json({ message: 'an error occured while retrieving an instance of user expense' });
+    }
+});
+
 // update an expense related to the current user
 router.put('/:user_number/:expense_number', authorizeToken, async (req, res) => {
     try {

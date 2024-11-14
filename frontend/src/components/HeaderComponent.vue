@@ -3,6 +3,7 @@
     <ul>
         <li><RouterLink :to="{ name: 'dashboard' }">Dashboard</RouterLink></li>
         <li><RouterLink :to="{ name: 'account' }">Account</RouterLink></li>
+        <li><RouterLink :to="{ name: 'expense' }">Expense</RouterLink></li>
     </ul>
 </header>
 </template>

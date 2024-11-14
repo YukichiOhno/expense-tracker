@@ -33,6 +33,18 @@ const router = createRouter({
             component: () => import('../views/DashboardView.vue'),
         },
         {
+            path: '/expense',
+            name: 'expense',
+            meta: { requiresAuthorization: true },
+            component: () => import('../views/ExpenseView.vue'),
+        },
+        {
+            path: '/expense-update/:expense_number',
+            name: 'expense-update',
+            meta: { requiresAuthorization: true },
+            component: () => import('../views/ExpenseInstanceView.vue'),
+        },
+        {
             path: '/:pathMatch(.*)*',
             redirect: { name: 'home' }
         }
