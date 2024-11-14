@@ -14,6 +14,8 @@ export const useUserStore = defineStore('user-information', () => {
         currency_sign: null
     });
 
+    const isLoggedIn = computed(() => userAccountInformation.username && userAccountInformation.number);
+
     const resetUserStore = () => {
         userAccountInformation.username = null;
         userAccountInformation.number = null;
@@ -24,6 +26,6 @@ export const useUserStore = defineStore('user-information', () => {
         settingConfiguration.currency_sign = null;
     };
 
-    return { userAccountInformation, settingConfiguration, resetUserStore }
+    return { userAccountInformation, settingConfiguration, isLoggedIn, resetUserStore }
 
 }, { persist: { enabled: true } });

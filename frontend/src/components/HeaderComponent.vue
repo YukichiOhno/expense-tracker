@@ -1,9 +1,8 @@
 <template>
 <header>
     <ul>
-        <li><RouterLink :to="{ name: 'home' }">Home</RouterLink></li>
-        <li><RouterLink :to="{ name: 'about' }">About</RouterLink></li>
-        <li><RouterLink :to="{ name: 'login' }">Login</RouterLink></li>
+        <li><RouterLink :to="{ name: 'dashboard' }">Dashboard</RouterLink></li>
+        <li><RouterLink :to="{ name: 'account' }">Account</RouterLink></li>
     </ul>
 </header>
 </template>

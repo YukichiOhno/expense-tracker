@@ -227,7 +227,7 @@ router.post('/sign-up', async (req, res) => {
 });
 
 // retrieve a user row 
-router.get('/:user_number', authorizeToken, async (req, res) => {
+router.get('/user-information/:user_number', authorizeToken, async (req, res) => {
     try {
         const userInformation = { ...req.user }; // copy the information 
         const parameterNumber = req.params.user_number;
@@ -584,23 +584,9 @@ router.get('/verify-token', (req, res) => {
         }
 
         // If the token is valid, respond with success
-        logger.log('token is valid');
+        logger.debug('token is valid');
         return res.status(200).json({ message: 'token is valid' });
     });
-});
-
-router.get('/no-token', (req, res) => {
-    const token = req.cookies['token'];
-
-    // Check if the token exists
-    if (!token) {
-        logger.debug('no token is provided');
-        return res.status(200).json({ message: 'unauthorized: no token provided' });
-    } else {
-        return res.status(401).json({ message: 'token is provided'});
-    }
-
-    /* the entire purpose of this route is enable users to go to the login page */
 });
 
 module.exports = router;
